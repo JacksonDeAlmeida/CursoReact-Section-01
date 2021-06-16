@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
 import './Home.css';
 
@@ -6,114 +6,100 @@ import { Posts } from '../../components/Posts';
 import { loadPost } from "../../utils/load-post";
 import { Button } from "../../components/Button";
 import { TextInput } from '../../components/TextInput';
+import { Select } from '../../components/Select';
 
-class Home extends React.Component {
+const Home = () => {
 
-  _timeoutUpdate = null;
+  const [posts, setPosts] = useState([]);
+  const [allPosts, setAllPosts] = useState([]);
+  const [page, setPage] = useState(0);
+  const [postsPerPage] = useState(2);
+  const [searchValue, setSearchValue] = useState('');
 
-  state = {
-    posts: [],
-    allPosts: [],
-    page: 0,
-    postsPerPage: 3,
-    searchValue: "",
-  }
+  const noMorePostsNext = page + postsPerPage >= allPosts.length;
+  const noMorePostsPrevious = page + postsPerPage <= 0;
   
-  async componentDidMount() {
-    await this.loadPosts()
-  }
-
-  loadPosts = async () => {
-    const { page, postsPerPage } = this.state;
+  const handleLoadPosts = useCallback(async (page, postsPerPage) => {
     const postsAndPhotos = await loadPost();
-    this.setState({
-      posts: postsAndPhotos.slice(page, postsPerPage),
-      allPosts: postsAndPhotos
-    })
-  }
+    
+    setPosts(postsAndPhotos.slice(page, postsPerPage))
+    setAllPosts(postsAndPhotos);
+  }, [])
+  
+  useEffect(() => {
+    handleLoadPosts(0, postsPerPage)
+  }, [
+    handleLoadPosts,
+    postsPerPage,
+  ]);
 
-  handleClickNext = () => {
-    const { page } = this.state;
-    this.handleChangePage(page + 1);
-  }
+  const filteredPosts = !!searchValue ?
+    allPosts.filter(post => {
+      return post.title.toLowerCase()
+                       .includes(searchValue.toLowerCase())
+    }) : posts;
 
-  handleClickPrevious = () => {
-    const { page } = this.state;
-    this.handleChangePage(page - 1);
-  }
-
-  handleChangePage = (nextPage) => {
-    const {
-      postsPerPage,
-      allPosts,
-    } = this.state;
+  const handleChangePage = (nextPage) => {
     const initialRange = nextPage * postsPerPage;
     const nextPosts = allPosts.slice(initialRange, initialRange + postsPerPage);
 
-    this.setState({
-      posts: nextPosts, page: nextPage,
-    })
+    setPosts(nextPosts);
+    setPage(nextPage);
   }
 
-  handleChangeInput = (e) => {
+  const handleClickNext = () => {
+    handleChangePage(page + 1);
+  }
+
+  const handleClickPrevious = () => {
+    handleChangePage(page - 1);
+  }
+
+  const handleChangeInput = (e) => {
     const { value } = e.target;
-    this.setState({ searchValue : value });
+    setSearchValue(value);
   }
 
-  render() {
-    const { posts, postsPerPage, page, allPosts, searchValue } = this.state;
-    const noMorePostsNext = page + postsPerPage >= allPosts.length;
-    const noMorePostsPrevious = page + postsPerPage <= 0;
+  return (
+    <section className="container">
+      <div className="search-container">
+        <TextInput
+          type={"search"}
+          onChange={handleChangeInput}
+          placeholder="Type your search"
+        />
+        
+        {!!searchValue && ( <h1>Search value: {searchValue}</h1> )}
+      </div>
 
-    const filteredPosts = !!searchValue ?
-      allPosts.filter(post => {
-        return post.title.toLowerCase().includes(
-          searchValue.toLowerCase()
-        )
-      })
-      : posts;
-
-    return (
-      <section className="container">
-        <div className="search-container">
-          <TextInput
-            type={"search"}
-            onChange={this.handleChangeInput}
-            placeholder="Type your search"
-          />
-
-          {!!searchValue && (
-            <h1>Search value: {searchValue}</h1>
-          )}
-        </div>
-
+      <div>
         {filteredPosts.length > 0
           ? <>
               <Posts posts={filteredPosts}/>
             </>
-            : <>
-                <h1>Sem resultados!</h1>
-              </>
+          : <>
+              <h1>Sem resultados!</h1>
+            </>
         }
+      </div>
 
+      <div>
         {!searchValue && (
           <>
             <Button
-              onClick={this.handleClickNext}
+              onClick={handleClickNext}
               text={"Next"}
               disabled={noMorePostsNext}/>
             <Button
-              onClick={this.handleClickPrevious}
+              onClick={handleClickPrevious}
               text={"Previous"}
               disabled={noMorePostsPrevious}
               />
           </>
         )}
-      </section>
-    );
-  }  
+      </div>
+    </section>
+  );
 }
-
-
 
 export default Home;
